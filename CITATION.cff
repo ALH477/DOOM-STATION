@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "ALH477"
+  given-names: "DSP Division"
+title: "DOOM STATION: Parallel Destructive Signal Chain for Faust"
+version: 3.2.0
+date-released: 2026-03-02
+url: "https://github.com/ALH477/doom-station"
+license: MIT
+keywords:
+  - "faust"
+  - "dsp"
+  - "audio-processing"
+  - "industrial-metal"
+  - "argent-metal"
+  - "distortion"
