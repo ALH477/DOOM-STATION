@@ -26,8 +26,8 @@ phDepth = mod_ui(vslider("[1] Phaser Depth", 0.75, 0, 1, 0.01)) : si.smoo;
 phFeedback = mod_ui(vslider("[2] Phaser Feedback", 0.4, 0, 0.9, 0.01)) : si.smoo;
 phCenter = mod_ui(vslider("[3] Phaser Center [unit:Hz]", 800, 100, 5000, 10)) : si.smoo;
 chorusAmt = mod_ui(vslider("[4] Chorus Depth", 0.3, 0, 1, 0.01)) : si.smoo;
-gateThresh = dyn_ui(vslider("[0] Gate Open [unit:dB]", -60, -99, -20, 1)) : si.smoo;
-gateClose = dyn_ui(vslider("[1] Gate Close [unit:dB]", -66, -99, -20, 1)) : si.smoo;
+gateThresh = dyn_ui(vslider("[0] Gate Open [unit:dB]", -80, -99, -20, 1)) : si.smoo;
+gateClose = dyn_ui(vslider("[1] Gate Close [unit:dB]", -86, -99, -20, 1)) : si.smoo;
 gateHold = dyn_ui(vslider("[2] Gate Hold [unit:ms]", 50, 0, 500, 1)) : *(0.001) : si.smoo;
 thresh = dyn_ui(vslider("[3] Comp Threshold [unit:dB]",-26, -50, -6, 0.5)) : si.smoo;
 ratio = dyn_ui(vslider("[4] Comp Ratio", 9, 2, 20, 0.1)) : si.smoo;
@@ -104,15 +104,11 @@ xFreq3 = 4000.0;
 lr4lp(f)     = fi.lowpass(2,f)  : fi.lowpass(2,f);
 lr4hp(f)     = fi.highpass(2,f) : fi.highpass(2,f);
 lr4bp(f1,f2) = lr4hp(f1) : lr4lp(f2);
-bandSub  = lr4lp(xFreq1)         : dcBlock : tubeSat(drive*0.4  * eraSatMod);
-bandLo   = lr4bp(xFreq1, xFreq2) : dcBlock : bandlimitedSat(drive*1.0  * eraSatMod);
-bandHi   = lr4bp(xFreq2, xFreq3) : dcBlock : bandlimitedSat(drive*1.3  * eraSatMod) : *(1.15);
-bandPres = lr4hp(xFreq3)         : dcBlock : softClip(drive*0.6 * eraSatMod);
 mbSat(drv) = (_ <:
-    bandSub,
-    bandLo,
-    bandHi,
-    bandPres
+    (lr4lp(xFreq1)         : dcBlock : tubeSat(drv*0.4  * eraSatMod)),
+    (lr4bp(xFreq1, xFreq2) : dcBlock : bandlimitedSat(drv*1.0  * eraSatMod)),
+    (lr4bp(xFreq2, xFreq3) : dcBlock : bandlimitedSat(drv*1.3  * eraSatMod) : *(1.15)),
+    (lr4hp(xFreq3)         : dcBlock : softClip(drv*0.6 * eraSatMod))
 ) :> *(0.25);
 // ============================================================
 // STEREO PHASER WITH CENTER FREQ
@@ -161,7 +157,9 @@ with {
     rmsWindow = 0.050;
     rmsDetect = _ <: * : an.rms_envelope_rect(rmsWindow) : ba.linear2db;
     raw_gr    = -(thresh) : max(0) : *(1.0 - 1.0/max(1.0001, ratio)) : *(0.0-1.0);
-    compEnv   = _ <: fi.pole(ba.tau2pole(compAtk)), fi.pole(ba.tau2pole(compRel)) :> *(0.5);
+    compEnv   = _ <: (fi.pole(ba.tau2pole(compAtk)) : max(-120.0)),
+                     (fi.pole(ba.tau2pole(compRel))  : max(-120.0))
+               : min;
 };
 // ============================================================
 // 8x8 HADAMARD FDN REVERB
@@ -169,11 +167,11 @@ with {
 //   as a symbol. Replaced with a scalar function and direct literals.
 // ============================================================
 
-// Delay lengths as a scalar selector function — returns a single int
-fdnLen(i) = ba.take(i+1, (1427, 1621, 1861, 2053, 2293, 2539, 2797, 3061)) * (ma.SR/44100.0);
+// Pre-computed delay length ratios (constants) to avoid signal^signal computation
+fdnRatio(i) = ba.take(i+1, (1427, 1621, 1861, 2053, 2293, 2539, 2797, 3061)) / 3061.0;
 
-// Decay attenuation per delay line
-fdnAtten(i) = fdnDecay ^ (fdnLen(i) / fdnLen(7));
+// Decay attenuation per delay line using pre-computed ratios
+fdnAtten(i) = fdnDecay ^ fdnRatio(i);
 
 hadamardMix8 = _,_,_,_,_,_,_,_ : s1 : s2 : s3 : par(i, 8, *(1.0/sqrt(8.0)))
 with {
@@ -182,7 +180,7 @@ with {
     s3(a,b,c,d,e,f,g,h) = a+e, b+f, c+g, d+h, a-e, b-f, c-g, d-h;
 };
 
-delays = par(i, 8, de.delay(8192, int(fdnLen(i))));
+delays = par(i, 8, de.delay(8192, int(ba.take(i+1, (1427, 1621, 1861, 2053, 2293, 2539, 2797, 3061)) * (ma.SR/44100.0))));
 attens = par(i, 8, fi.lowpass(1, fdnDamp * eraDampMod) : *(fdnAtten(i)));
 
 // Extract channels 0 and 4 from an 8-bus using explicit discard
