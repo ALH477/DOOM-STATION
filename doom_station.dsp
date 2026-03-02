@@ -1,6 +1,6 @@
 import("stdfaust.lib");
 declare name "DOOM STATION v5.4";
-declare author "ALH477 & Community Code Review & Grok & Claude";
+declare author "ALH477 & Community Code Review & Grok & Claude & Gemini";
 declare license "MIT";
 declare version "5.4.0";
 declare description "Industrial/Argent Metal — FDN Reverb, Bandlimited Sat, Multiband Parallel, True M/S, Production Fixes";
